@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cross-Platform Fingerprint</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    pre { background: #f9f9f9; padding: 1rem; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>📱 디바이스 Fingerprint 예제</h1>
+  <table id="info-table" border="1" cellpadding="8"></table>
+  <h2>🔐 SHA-256 Fingerprint</h2>
+  <pre id="fingerprint">계산 중...</pre>
+
+  <script>
+    async function sha256(str) {
+      const buffer = new TextEncoder().encode(str);
+      const hash = await crypto.subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function getCanvasHash() {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText("🧬 Fingerprint", 2, 2);
+      return await sha256(canvas.toDataURL());
+    }
+
+    function getWebGLVendor() {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl');
+      if (!gl) return 'unsupported';
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'unknown';
+    }
+
+    async function getAudioFingerprint() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const analyser = ctx.createAnalyser();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(10000, ctx.currentTime);
+      osc.connect(analyser);
+      analyser.connect(ctx.destination);
+      osc.start();
+      const buffer = new Float32Array(analyser.frequencyBinCount);
+      analyser.getFloatFrequencyData(buffer);
+      osc.stop();
+      return buffer.slice(0, 10).join(',');
+    }
+
+    async function getFingerprint() {
+      const lang = navigator.language;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const ua = navigator.userAgent
+                          .replace(/Version\/[\d.]+/, '')
+                          .replace(/Safari\/[\d.]+/, '');
+      const platform = navigator.platform;
+      const dpr = window.devicePixelRatio;
+      const screenRes = `${screen.width}x${screen.height}`;
+      const touch = navigator.maxTouchPoints;
+
+      const ip = await fetch('https://api64.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => data.ip)
+        .catch(() => 'unknown');
+
+      const canvasHash = await getCanvasHash();
+      const webgl = getWebGLVendor();
+      const audio = await getAudioFingerprint();
+
+      const data = {
+        ip,
+        language: lang,
+        timezone: tz,
+        userAgent: ua,
+        platform: platform,
+        resolution: screenRes,
+        dpr: dpr,
+        maxTouchPoints: touch,
+        canvas: canvasHash,
+        webgl,
+        audio
+      };
+
+      const table = document.getElementById('info-table');
+      Object.entries(data).forEach(([k, v]) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td><strong>${k}</strong></td><td>${v}</td>`;
+        table.appendChild(row);
+      });
+
+      const entropy = Object.entries(data).map(([k, v]) => `${k}:${v}`).join('||');
+      const finalHash = await sha256(entropy);
+      document.getElementById('fingerprint').textContent = finalHash;
+    }
+
+    getFingerprint();
+  </script>
+</body>
+</html>
