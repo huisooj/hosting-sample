@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +13,12 @@
   <h1>🎧 Audio Fingerprint (Click to Activate)</h1>
   <button onclick="runAudioFingerprint()">🔊 Analyze Audio Fingerprint</button>
   <pre id="result">Waiting for click...</pre>
+  <div style="margin-top: 1rem;">
+    <label for="compareInput">🔍 Compare with your known fingerprint:</label><br/>
+    <input id="compareInput" type="text" style="width: 100%; padding: 0.5rem;" placeholder="-58,-55,-50,..."/>
+    <button onclick="compareFingerprints()">Compare</button>
+    <pre id="similarityResult">Similarity: --</pre>
+  </div>
 
   <script>
     async function getAudioFingerprint() {
@@ -44,6 +49,32 @@
       document.getElementById('result').textContent = "Analyzing...";
       const audio = await getAudioFingerprint();
       document.getElementById('result').textContent = audio;
+    }
+
+    function fingerprintSimilarity(fp1, fp2) {
+      const a = fp1.split(',').map(Number);
+      const b = fp2.split(',').map(Number);
+      if (a.length !== b.length) return 0;
+
+      let errorSum = 0;
+      for (let i = 0; i < a.length; i++) {
+        errorSum += Math.abs(a[i] - b[i]);
+      }
+
+      const mae = errorSum / a.length;
+      return 1 - Math.min(mae / 20, 1); // Normalize to 0–1
+    }
+
+    function compareFingerprints() {
+      const known = document.getElementById('compareInput').value.trim();
+      const current = document.getElementById('result').textContent.trim();
+      if (!known || !current || current.includes("Waiting") || current.includes("Analyzing")) {
+        document.getElementById('similarityResult').textContent = "Similarity: (wait for fingerprint result)";
+        return;
+      }
+
+      const score = fingerprintSimilarity(known, current);
+      document.getElementById('similarityResult').textContent = `Similarity: ${(score * 100).toFixed(1)}%`;
     }
   </script>
 </body>
