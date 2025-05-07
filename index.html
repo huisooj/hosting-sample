@@ -1,119 +1,50 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Cross-Platform Fingerprint</title>
+  <title>Audio Fingerprint Triggered by Click</title>
   <style>
     body { font-family: sans-serif; padding: 2rem; }
-    pre { background: #f9f9f9; padding: 1rem; border: 1px solid #ddd; }
+    button { font-size: 1.2rem; padding: 0.5rem 1rem; }
+    pre { background: #f9f9f9; padding: 1rem; border: 1px solid #ddd; margin-top: 1rem; }
   </style>
 </head>
 <body>
-  <h1>📱 디바이스 Fingerprint 예제3</h1>
-  <table id="info-table" border="1" cellpadding="8"></table>
-  <h2>🔐 SHA-256 Fingerprint</h2>
-  <pre id="fingerprint">계산 중...</pre>
+  <h1>🎧 Audio Fingerprint (Click to Activate)</h1>
+  <button onclick="runAudioFingerprint()">🔊 Analyze Audio Fingerprint</button>
+  <pre id="result">Waiting for click...</pre>
 
   <script>
-    async function sha256(str) {
-      const buffer = new TextEncoder().encode(str);
-      const hash = await crypto.subtle.digest('SHA-256', buffer);
-      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async function getCanvasHash() {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = "#f60";
-      ctx.fillRect(125, 1, 62, 20);
-      ctx.fillStyle = "#069";
-      ctx.font = '16pt Arial';
-      ctx.fillText('🌐 Fingerprint!', 2, 15);
-      ctx.strokeStyle = "rgba(255,0,255,0.8)";
-      ctx.arc(50, 50, 20, 0, Math.PI * 2);
-      ctx.stroke();
-      return await sha256(canvas.toDataURL());
-    }
-
-    function getWebGLVendor() {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl');
-      if (!gl) return 'unsupported';
-      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'unknown';
-    }
-
     async function getAudioFingerprint() {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const analyser = ctx.createAnalyser();
+      const gain = ctx.createGain();
+
+      gain.gain.value = 0;
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(10000, ctx.currentTime);
+
       osc.connect(analyser);
-      analyser.connect(ctx.destination);
+      analyser.connect(gain);
+      gain.connect(ctx.destination);
+
       osc.start();
+      await new Promise(resolve => setTimeout(resolve, 250));
       const buffer = new Float32Array(analyser.frequencyBinCount);
       analyser.getFloatFrequencyData(buffer);
       osc.stop();
-      return buffer.slice(0, 10).join(',');
+
+      const result = buffer.slice(0, 10).map(v => isFinite(v) ? v.toFixed(3) : '0.000');
+      return result.join(',');
     }
 
-    async function getFingerprint() {
-      const lang = navigator.language;
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const ua = navigator.userAgent
-                          .replace(/Version\/[\d.]+/, '')
-                          .replace(/Safari\/[\d.]+/, '');
-      const platform = navigator.platform;
-      const dpr = window.devicePixelRatio;
-      const screenRes = `${screen.width}x${screen.height}`;
-      const touch = navigator.maxTouchPoints;
-
-      const ip = await fetch('https://api64.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => data.ip)
-        .catch(() => 'unknown');
-
-      const canvasHash = await getCanvasHash();
-      const webgl = getWebGLVendor();
+    async function runAudioFingerprint() {
+      document.getElementById('result').textContent = "Analyzing...";
       const audio = await getAudioFingerprint();
-
-      const data = {
-        ip: String(ip).trim(),
-        language: String(lang).trim(),
-        timezone: String(tz).trim(),
-        userAgent: String(ua).trim(),
-        platform: String(platform).trim(),
-        resolution: String(screenRes).trim(),
-        dpr: String(dpr).trim(),
-        maxTouchPoints: String(touch).trim(),
-        canvas: String(canvasHash).trim(),
-        webgl: String(webgl).trim(),
-        audio: String(audio).trim()
-      };
-
-      const table = document.getElementById('info-table');
-      Object.entries(data).forEach(([k, v]) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td><strong>${k}</strong></td><td>${v}</td>`;
-        table.appendChild(row);
-      });
-
-      const orderedKeys = [
-        'ip', 'language', 'timezone', 'userAgent', 'platform',
-        'resolution', 'dpr', 'maxTouchPoints', 'canvas', 'webgl', 'audio'
-      ];
-
-      const entropy = orderedKeys
-        .map(k => `${k}:${String(data[k]).trim()}`)
-        .join('||');
-
-      const finalHash = await sha256(entropy);
-      document.getElementById('fingerprint').textContent = finalHash;
+      document.getElementById('result').textContent = audio;
     }
-
-    getFingerprint();
   </script>
 </body>
 </html>
