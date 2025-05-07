@@ -94,7 +94,15 @@
         table.appendChild(row);
       });
 
-      const entropy = Object.entries(data).map(([k, v]) => `${k}:${v}`).join('||');
+      const orderedKeys = [
+        'ip', 'language', 'timezone', 'userAgent', 'platform',
+        'resolution', 'dpr', 'maxTouchPoints', 'canvas', 'webgl', 'audio'
+      ];
+
+      const entropy = orderedKeys
+        .map(k => `${k}:${data[k]}`)
+        .join('||');
+
       const finalHash = await sha256(entropy);
       document.getElementById('fingerprint').textContent = finalHash;
     }
