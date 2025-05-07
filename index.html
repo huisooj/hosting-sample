@@ -9,7 +9,7 @@
   </style>
 </head>
 <body>
-  <h1>📱 디바이스 Fingerprint 예제</h1>
+  <h1>📱 디바이스 Fingerprint 예제2</h1>
   <table id="info-table" border="1" cellpadding="8"></table>
   <h2>🔐 SHA-256 Fingerprint</h2>
   <pre id="fingerprint">계산 중...</pre>
@@ -74,17 +74,17 @@
       const audio = await getAudioFingerprint();
 
       const data = {
-        ip,
-        language: lang,
-        timezone: tz,
-        userAgent: ua,
-        platform: platform,
-        resolution: screenRes,
-        dpr: dpr,
-        maxTouchPoints: touch,
-        canvas: canvasHash,
-        webgl,
-        audio
+        ip: String(ip).trim(),
+        language: String(lang).trim(),
+        timezone: String(tz).trim(),
+        userAgent: String(ua).trim(),
+        platform: String(platform).trim(),
+        resolution: String(screenRes).trim(),
+        dpr: String(dpr).trim(),
+        maxTouchPoints: String(touch).trim(),
+        canvas: String(canvasHash).trim(),
+        webgl: String(webgl).trim(),
+        audio: String(audio).trim()
       };
 
       const table = document.getElementById('info-table');
@@ -100,7 +100,7 @@
       ];
 
       const entropy = orderedKeys
-        .map(k => `${k}:${data[k]}`)
+        .map(k => `${k}:${String(data[k]).trim()}`)
         .join('||');
 
       const finalHash = await sha256(entropy);
